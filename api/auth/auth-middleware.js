@@ -1,3 +1,5 @@
+// initial commit comment
+
 /*
   If the user does not have a session saved in the server
 
