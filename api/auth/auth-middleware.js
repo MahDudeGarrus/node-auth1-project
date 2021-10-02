@@ -1,3 +1,4 @@
+const User = require('../users/users-model.js')
 // initial commit comment
 
 /*
@@ -27,15 +28,19 @@ function restricted(req, res, next) {
     "message": "Username taken"
   }
 */
-function checkUsernameFree(req, res, next) {
-  const {username} = req.body
-  if(username) {
-    next({
-      status: 422,
-      message: "Username taken"
-    })
-  } else {
-    next()
+async function checkUsernameFree(req, res, next) {
+  try {
+    const users = await User.findBy({ username: req.body.username})
+    if(!users.length){
+      next()
+    } else {
+      next({
+        status: 422,
+        message: "Username taken"
+      })
+    }
+  } catch (error) {
+    next(error)
   }
 }
 
@@ -47,16 +52,18 @@ function checkUsernameFree(req, res, next) {
     "message": "Invalid credentials"
   }
 */
-function checkUsernameExists(req, res, next) {
- const { username } = req.body
- if(!username){
-   next({
-     status: 401,
-     message: "Invalid credentials"
-   })
- } else {
-   next()
- }
+async function checkUsernameExists(req, res, next) {
+  try{ 
+    const user = await User.findBy({ username: req.body.username })
+    if(user.length){
+      req.user = user[0]
+      next()
+    } else {
+      res.status(401).json({message: 'Invalid credentials'})
+    }
+  } catch(error){
+    next(error)
+  }
 }
 
 /*
@@ -68,12 +75,14 @@ function checkUsernameExists(req, res, next) {
   }
 */
 function checkPasswordLength(req, res, next) {
-  const { password } = req.body
+  const password = req.body.password
   if(!password || password.length <= 3){
     next({
       status: 422,
       message: "Password must be longer than 3 chars"
     })
+  } else {
+    next()
   }
 }
 

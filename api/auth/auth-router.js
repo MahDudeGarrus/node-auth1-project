@@ -1,6 +1,7 @@
 // Require `checkUsernameFree`, `checkUsernameExists` and `checkPasswordLength`
 // middleware functions from `auth-middleware.js`. You will need them here!
 const router = require('express').Router()
+const User = require('../users/users-model.js')
 const { checkUsernameFree, checkUsernameExists, checkPasswordLength } = require('./auth-middleware.js');
 const bcrypt = require('bcryptjs');
 const { add, findBy } = require('../users/users-model.js');
@@ -28,16 +29,15 @@ const { add, findBy } = require('../users/users-model.js');
     "message": "Password must be longer than 3 chars"
   }
  */
-router.post('/register', checkUsernameFree, checkPasswordLength, async ( req, res, next) => {
-  try{
+router.post('/register', checkUsernameFree, checkPasswordLength, ( req, res, next) => {
     const { username, password } = req.body
-    const hash = bcrypt.hash(password, 8)
-    const user = { username, password: hash }
-    const createdUser = await add(user)
-    res.status(200).json(createdUser)
-  } catch (error) {
-    next(error)
-  }
+    const hash = bcrypt.hashSync(password, 8)
+    
+    User.add({ username, password: hash })
+      .then(saved => {
+        res.status(200).json(saved)
+      })
+      .catch(next)
 })
 
 /**
@@ -55,20 +55,18 @@ router.post('/register', checkUsernameFree, checkPasswordLength, async ( req, re
     "message": "Invalid credentials"
   }
  */
-router.post('/login', checkUsernameExists, async ( req, res, next)=> {
-  try{
+router.post('/login', checkUsernameExists, ( req, res, next)=> {
     const { username, password } = req.body
-    const [user] = await findBy({ username })
 
-    if (user && bcrypt.compareSync(password, user.password)) {
-      req.session.user = user
-      res.status(200).json(`Welcome ${username}!`)
+    if (bcrypt.compareSync(password, req.user.password)) {
+      req.session.user = req.user
+      res.status(200).json({message:`Welcome ${username}!`})
     } else {
-      next()
+      next({ 
+        status: 401,
+        message: "Invalid credentials"
+      })
     }
-  } catch (error) {
-    next(error)
-  }
 })
 
 /**
@@ -87,11 +85,11 @@ router.post('/login', checkUsernameExists, async ( req, res, next)=> {
   }
  */
 
-router.get('/logout', async (req, res, next) => {
+router.get('/logout', (req, res, next) => {
   if(req.session.user) {
     req.session.destroy(error => {
       if(error) {
-        res.json({ message: "There was an error logging you out"})
+        next(error)
       } else {
         res.status(200).json({ message: "logged out"})
       }
